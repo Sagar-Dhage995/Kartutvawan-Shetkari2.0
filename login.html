@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login | कर्तृत्ववान शेतकरी</title>
+<link rel="icon" href="shetkarilogo.jpg">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;background:linear-gradient(135deg,#041a0b 0%,#0f6b28 50%,#041a0b 100%);display:flex;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif;padding:1rem}
+.card{background:#fff;border-radius:20px;padding:2.5rem 2rem;max-width:400px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.4);text-align:center}
+.logo{width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #e6f7eb;margin:0 auto 1rem;display:block}
+h1{font-size:1.5rem;color:#052e0f;margin-bottom:.3rem}
+.sub{font-size:.82rem;color:#888;margin-bottom:1.8rem}
+.reg{font-size:.72rem;color:#22a045;font-weight:700;margin-bottom:1.4rem;padding:.3rem .8rem;background:#e6f7eb;border-radius:50px;display:inline-block}
+
+/* Google button */
+.google-btn{width:100%;padding:13px 20px;border:2px solid #e0e0e0;border-radius:12px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;font-size:.95rem;font-weight:600;color:#333;transition:.3s;margin-bottom:1rem}
+.google-btn:hover{border-color:#4285F4;box-shadow:0 4px 16px rgba(66,133,244,.2)}
+.google-btn svg{flex-shrink:0}
+
+/* Password step */
+.pw-step{display:none}
+.pw-step.show{display:block}
+.user-info{background:#f0f9f4;border-radius:10px;padding:.8rem;margin-bottom:1rem;display:flex;align-items:center;gap:.6rem;text-align:left}
+.user-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.user-name{font-size:.85rem;font-weight:700;color:#052e0f}
+.user-email{font-size:.75rem;color:#666}
+.role-badge{font-size:.68rem;padding:2px 8px;border-radius:50px;font-weight:700;display:inline-block;margin-top:2px}
+.role-owner{background:#fff0e0;color:#b45309}
+.role-client{background:#e6f7eb;color:#0f6b28}
+.role-none{background:#fee2e2;color:#dc2626}
+
+.pw-label{font-size:.82rem;color:#555;text-align:left;margin-bottom:.5rem;font-weight:600}
+.pw-input{width:100%;padding:12px 16px;border:2px solid #e0e0e0;border-radius:10px;font-size:.95rem;outline:none;transition:.3s;margin-bottom:.8rem}
+.pw-input:focus{border-color:#0f6b28}
+
+.btn-primary{width:100%;padding:13px;border-radius:12px;background:linear-gradient(135deg,#0f6b28,#22a045);color:#fff;font-size:.95rem;font-weight:700;border:none;cursor:pointer;transition:.3s}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(15,107,40,.4)}
+.btn-primary:disabled{opacity:.6;transform:none;cursor:not-allowed}
+
+.btn-back{width:100%;padding:10px;border-radius:12px;background:#f5f5f5;color:#555;font-size:.85rem;font-weight:600;border:none;cursor:pointer;margin-top:.5rem;transition:.3s}
+.btn-back:hover{background:#eee}
+
+.msg{padding:.7rem 1rem;border-radius:8px;font-size:.82rem;margin-bottom:.8rem;display:none}
+.msg.error{background:#fee2e2;color:#dc2626;display:block}
+.msg.success{background:#e6f7eb;color:#0f6b28;display:block}
+.msg.info{background:#eff6ff;color:#1d4ed8;display:block}
+
+.loading{display:none;flex-direction:column;align-items:center;gap:.8rem;padding:1rem}
+.loading.show{display:flex}
+.spinner{width:40px;height:40px;border:4px solid #e6f7eb;border-top:4px solid #0f6b28;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.viewer-note{font-size:.78rem;color:#888;margin-top:1rem;padding:.6rem;background:#f9f9f9;border-radius:8px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <img src="shetkarilogo.jpg" alt="Logo" class="logo" onerror="this.style.display='none'">
+  <h1><em style="color:#0f6b28;font-style:normal">कर्तृत्ववान</em> शेतकरी</h1>
+  <p class="sub">साप्ताहिक कृषी वृत्तपत्र</p>
+  <span class="reg">PRGI: MHMAR/26/A0927</span>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p style="color:#555;font-size:.85rem" id="loading-text">Google account तपासत आहे...</p>
+  </div>
+
+  <!-- Step 1: Google Sign-In -->
+  <div id="step-google">
+    <div class="msg" id="msg1"></div>
+    <button class="google-btn" onclick="signInWithGoogle()" id="google-btn">
+      <svg width="20" height="20" viewBox="0 0 48 48">
+        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.35-8.16 2.35-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+      </svg>
+      Google ने Sign In करा
+    </button>
+    <div class="viewer-note">
+      📖 <strong>सामान्य वाचकांसाठी:</strong> Login नसताना सर्व अंक वाचता येतात.<br>
+      🔐 <strong>Upload करण्यासाठी:</strong> Authorized account ने Login करा.
+    </div>
+  </div>
+
+  <!-- Step 2: Password verification for authorized users -->
+  <div class="pw-step" id="step-password">
+    <div class="msg" id="msg2"></div>
+    <div class="user-info" id="user-info">
+      <img id="user-avatar" class="user-avatar" src="" alt="Avatar" onerror="this.src='shetkarilogo.jpg'">
+      <div>
+        <div class="user-name" id="user-name-el"></div>
+        <div class="user-email" id="user-email-el"></div>
+        <span class="role-badge" id="role-badge-el"></span>
+      </div>
+    </div>
+    <div class="pw-label">Upload Password टाका:</div>
+    <input type="password" id="pw-input" class="pw-input" placeholder="Password" autocomplete="current-password">
+    <button class="btn-primary" id="pw-btn" onclick="verifyPassword()">✅ प्रवेश करा</button>
+    <button class="btn-back" onclick="backToGoogle()">← दुसरे account वापरा</button>
+  </div>
+
+  <!-- Step 3: Unauthorized (viewer login) -->
+  <div class="pw-step" id="step-viewer">
+    <div class="user-info" id="viewer-info">
+      <img id="viewer-avatar" class="user-avatar" src="" alt="Avatar" onerror="this.src='shetkarilogo.jpg'">
+      <div>
+        <div class="user-name" id="viewer-name-el"></div>
+        <div class="user-email" id="viewer-email-el"></div>
+        <span class="role-badge role-none">👁️ Viewer Only</span>
+      </div>
+    </div>
+    <p style="font-size:.82rem;color:#666;margin-bottom:1rem;line-height:1.7">
+      तुमच्या account ला upload access नाही.<br>
+      तुम्ही <strong>सर्व अंक वाचू शकता</strong>.
+    </p>
+    <button class="btn-primary" onclick="continueAsViewer()">📖 Viewer म्हणून Continue करा</button>
+    <button class="btn-back" onclick="backToGoogle()">← दुसरे account वापरा</button>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="supabase-config.js"></script>
+<script>
+console.log('[LOGIN] Step 1: Script executing');
+
+var _googleUser = null;
+var _done       = false;
+
+// ══════════════════════════════════════════════
+//  SINGLE ENTRY POINT — called once, always
+// ══════════════════════════════════════════════
+function _proceed(user) {
+  if (_done) {
+    console.log('[LOGIN] _proceed called but already done — skip');
+    return;
+  }
+  _done = true;
+  console.log('[LOGIN] Step 6: _proceed called. user:', user ? user.email : 'null');
+
+  if (!user || !user.email) {
+    // No session — just show login form
+    console.log('[LOGIN] Step 6a: No user — show login form');
+    hideLoading();
+    return;
+  }
+
+  var email  = (user.email || '').toLowerCase().trim();
+  var name   = (user.user_metadata && user.user_metadata.full_name) || email.split('@')[0];
+  var avatar = (user.user_metadata && user.user_metadata.avatar_url) || '';
+  var role   = (window.KS_ROLES && window.KS_ROLES[email]) || 'viewer';
+
+  console.log('[LOGIN] Step 7: email=' + email + ' role=' + role);
+
+  _googleUser = { email: email, name: name, avatar: avatar, role: role };
+
+  // Save email immediately (used by script.js)
+  sessionStorage.setItem('ks_user_email', email);
+  sessionStorage.setItem('ks_name', name);
+
+  if (role === 'owner' || role === 'client') {
+    console.log('[LOGIN] Step 8: Authorized user — show password step');
+    hideLoading();
+    showPasswordStep(name, email, role, avatar);
+  } else {
+    // Viewer — redirect immediately, no password step
+    console.log('[LOGIN] Step 8: Entering viewer flow');
+    console.log('[LOGIN] Setting sessionStorage ks_role=viewer');
+    sessionStorage.setItem('ks_role', 'viewer');
+    console.log('[LOGIN] Triggering redirect to index.html');
+    try {
+      window.location.href = 'index.html';
+      console.log('[LOGIN] Redirect triggered');
+    } catch(e) {
+      console.error('[LOGIN] Redirect failed:', e);
+      window.location.replace('index.html');
+    }
+  }
+}
+
+// ══════════════════════════════════════════════
+//  PAGE LOAD — trace every step
+// ══════════════════════════════════════════════
+window.addEventListener('load', function() {
+  console.log('[LOGIN] Step 2: Page loaded');
+  console.log('[LOGIN] URL hash:', window.location.hash.substring(0, 60));
+  console.log('[LOGIN] window.SB ready:', window.SB && window.SB.isReady ? window.SB.isReady() : false);
+
+  // Check if already logged in
+  var existing = sessionStorage.getItem('ks_user_email');
+  if (existing) {
+    console.log('[LOGIN] Already logged in as', existing, '— redirect');
+    window.location.href = 'index.html';
+    return;
+  }
+
+  showLoading('Login तपासत आहे...');
+
+  // ── Check URL for OAuth tokens (Google redirect) ──
+  var hash   = window.location.hash || '';
+  var search = window.location.search || '';
+  var isOAuthRedirect = hash.indexOf('access_token') !== -1
+                     || hash.indexOf('type=recovery') !== -1
+                     || search.indexOf('code=') !== -1
+                     || search.indexOf('error=') !== -1;
+
+  console.log('[LOGIN] Step 3: isOAuthRedirect=', isOAuthRedirect);
+
+  // ── Hard timeout — ALWAYS proceed after 5s ──
+  var masterTimer = setTimeout(function() {
+    console.warn('[LOGIN] MASTER TIMEOUT 5s — forcing redirect to index.html');
+    if (!_done) {
+      _done = true;
+      sessionStorage.setItem('ks_role', 'viewer');
+      window.location.href = 'index.html';
+    }
+  }, 5000);
+
+  // ── Setup Supabase listener ──
+  var sbOk = window.SB && typeof window.SB.isReady === 'function' && window.SB.isReady();
+  console.log('[LOGIN] Step 3a: Supabase ready=', sbOk);
+
+  if (sbOk) {
+    console.log('[LOGIN] Step 4: Registering onAuthChange listener');
+
+    // Listen for auth state changes
+    window.SB.onAuthChange(function(event, session) {
+      console.log('[LOGIN] Step 5: Auth event=', event, '| session=', session ? session.user.email : 'null');
+      clearTimeout(masterTimer);
+
+      // Handle ALL events that have a valid session
+      if (session && session.user) {
+        _proceed(session.user);
+      } else if (!_done) {
+        // No session in this event — show login form
+        console.log('[LOGIN] Event has no session — show form');
+        _done = true;
+        hideLoading();
+      }
+    });
+
+    // Also call getSession() directly as backup
+    console.log('[LOGIN] Step 4a: Calling getSession() as backup');
+    window.SB.getSession()
+      .then(function(session) {
+        console.log('[LOGIN] Step 4b: getSession result=', session ? session.user.email : 'null');
+        if (session && session.user && !_done) {
+          clearTimeout(masterTimer);
+          _proceed(session.user);
+        } else if (!session && !_done && !isOAuthRedirect) {
+          // No OAuth redirect, no session — show form
+          clearTimeout(masterTimer);
+          _done = true;
+          hideLoading();
+        }
+      })
+      .catch(function(err) {
+        console.error('[LOGIN] getSession error:', err.message);
+        if (!_done && !isOAuthRedirect) {
+          clearTimeout(masterTimer);
+          _done = true;
+          hideLoading();
+        }
+      });
+
+  } else {
+    // Supabase not configured or not loaded
+    console.warn('[LOGIN] Supabase not ready — showing login form');
+    clearTimeout(masterTimer);
+    _done = true;
+    hideLoading();
+  }
+});
+
+// ── Google Sign In ──
+async function signInWithGoogle() {
+  console.log('[LOGIN] signInWithGoogle clicked');
+  var btn = document.getElementById('google-btn');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Redirecting to Google...';
+  try {
+    await window.SB.signInGoogle();
+    // Browser redirects — no code after this
+  } catch(err) {
+    console.error('[LOGIN] Google sign-in error:', err.message);
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.35-8.16 2.35-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Google ने Sign In करा';
+    showMsg('msg1', 'error', '❌ Error: ' + err.message);
+  }
+}
+
+// ── Show password step ──
+function showPasswordStep(name, email, role, avatar) {
+  console.log('[LOGIN] showPasswordStep for', email, role);
+  hideAll();
+  _showEl('step-password');
+  console.log('[LOGIN] Password UI shown');
+  document.getElementById('user-name-el').textContent  = name;
+  document.getElementById('user-email-el').textContent = email;
+  document.getElementById('user-avatar').src = avatar || 'shetkarilogo.jpg';
+  var badge = document.getElementById('role-badge-el');
+  if (role === 'owner') {
+    badge.textContent = '👑 Owner — Full Access';
+    badge.className   = 'role-badge role-owner';
+  } else {
+    badge.textContent = '📤 Client — Upload Access';
+    badge.className   = 'role-badge role-client';
+  }
+  setTimeout(function() { document.getElementById('pw-input').focus(); }, 100);
+  document.getElementById('pw-input').onkeydown = function(e) {
+    if (e.key === 'Enter') verifyPassword();
+  };
+}
+
+// ── Show viewer step ──
+function showViewerStep(name, email, avatar) {
+  console.log('[LOGIN] showViewerStep for', email);
+  hideAll();
+  _showEl('step-viewer');
+  document.getElementById('viewer-name-el').textContent  = name;
+  document.getElementById('viewer-email-el').textContent = email;
+  document.getElementById('viewer-avatar').src = avatar || 'shetkarilogo.jpg';
+}
+
+// ── Verify upload password ──
+function verifyPassword() {
+  console.log('[LOGIN] verifyPassword called');
+  var pw  = document.getElementById('pw-input').value.trim();
+  var btn = document.getElementById('pw-btn');
+  if (!pw) { showMsg('msg2', 'error', '❌ Password टाका'); return; }
+  if (pw !== (window.KS_UPLOAD_PASSWORD || 'shetkari@2025')) {
+    showMsg('msg2', 'error', '❌ Password चुकीचे');
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-input').focus();
+    return;
+  }
+  btn.disabled = true; btn.textContent = '⏳ ...';
+  sessionStorage.setItem('ks_role', _googleUser.role);
+  sessionStorage.setItem('ks_name', _googleUser.name);
+  // Track non-blocking
+  if (window.SB && window.SB.trackLogin) {
+    window.SB.trackLogin(_googleUser.email, _googleUser.name, _googleUser.role)
+      .catch(function(e){ console.warn('[Track]', e.message); });
+  }
+  console.log('[LOGIN] Step 8: Password OK — entering owner/client flow');
+  console.log('[LOGIN] Setting sessionStorage ks_role=' + _googleUser.role);
+  console.log('[LOGIN] Triggering redirect to index.html');
+  try {
+    window.location.href = 'index.html';
+    console.log('[LOGIN] Redirect triggered');
+  } catch(e) {
+    console.error('[LOGIN] Redirect failed:', e);
+    window.location.replace('index.html');
+  }
+}
+
+// ── Viewer continue ──
+function continueAsViewer() {
+  console.log('[LOGIN] continueAsViewer — redirect');
+  sessionStorage.setItem('ks_role', 'viewer');
+  window.location.href = 'index.html';
+}
+
+// ── Back to Google ──
+async function backToGoogle() {
+  if (window.SB && window.SB.signOut) {
+    await window.SB.signOut().catch(function(){});
+  }
+  sessionStorage.clear();
+  _done = false; _googleUser = null;
+  hideAll();
+  document.getElementById('step-google').style.display = 'block';
+  var btn = document.getElementById('google-btn');
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.35-8.16 2.35-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> Google ने Sign In करा';
+}
+
+// ── UI helpers ──
+function hideAll() {
+  ['step-google','step-password','step-viewer'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) {
+      el.style.display = 'none';
+      el.classList.remove('show');
+    }
+  });
+}
+function _showEl(id) {
+  var el = document.getElementById(id);
+  if (!el) { console.error('[LOGIN] Element not found:', id); return; }
+  // Remove inline style FIRST so CSS class takes effect
+  el.style.display = '';
+  el.style.removeProperty('display');
+  el.classList.add('show');
+  console.log('[LOGIN] Element shown:', id, '| computed display:', el.style.display);
+}
+function showLoading(text) {
+  hideAll();
+  document.getElementById('loading').classList.add('show');
+  if (text) document.getElementById('loading-text').textContent = text;
+}
+function hideLoading() {
+  var ld = document.getElementById('loading');
+  if (ld) { ld.classList.remove('show'); ld.style.display = 'none'; }
+  _showEl('step-google');
+  console.log('[LOGIN] Login form shown');
+}
+function showMsg(id, type, text) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text; el.className = 'msg ' + type;
+}
+</script>
+</body>
+</html>

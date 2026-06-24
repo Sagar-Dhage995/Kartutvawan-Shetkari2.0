@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analytics | कर्तृत्ववान शेतकरी</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="shetkarilogo.jpg">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f4f1;min-height:100vh;color:#1a1a1a}
+
+/* ── Auth Gate ── */
+.gate{position:fixed;inset:0;background:linear-gradient(135deg,#052e0f,#0f6b28);display:flex;align-items:center;justify-content:center;z-index:999;padding:1rem}
+.gate-card{background:#fff;border-radius:20px;padding:2.5rem;max-width:360px;width:100%;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+.gate-card img{width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid #e6f7eb;margin:0 auto .8rem;display:block}
+.gate-card h2{font-size:1.4rem;color:#052e0f;margin-bottom:.3rem}
+.gate-card p{font-size:.82rem;color:#888;margin-bottom:1.4rem}
+.gate-input{width:100%;padding:12px 16px;border:2px solid #ddd;border-radius:10px;font-size:.9rem;margin-bottom:.8rem;outline:none;transition:.3s}
+.gate-input:focus{border-color:#0f6b28}
+.gate-btn{width:100%;padding:12px;border-radius:10px;background:linear-gradient(135deg,#0f6b28,#22a045);color:#fff;font-size:1rem;font-weight:700;border:none;cursor:pointer;transition:.3s}
+.gate-btn:hover{transform:translateY(-2px)}
+.gate-err{color:#dc2626;font-size:.8rem;margin-top:.5rem;min-height:1.2rem}
+
+/* ── Layout ── */
+.topbar{background:#052e0f;color:#fff;padding:13px 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;border-bottom:3px solid #e07b1a}
+.topbar h1{font-size:1.1rem;display:flex;align-items:center;gap:10px}
+.topbar h1 img{width:32px;height:32px;border-radius:50%;object-fit:cover}
+.topbar-right{display:flex;gap:.6rem;align-items:center}
+.rt-dot{width:8px;height:8px;background:#4dff80;border-radius:50%;display:inline-block;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.top-link{color:rgba(255,255,255,.7);font-size:.8rem;text-decoration:none;padding:5px 12px;border:1px solid rgba(255,255,255,.25);border-radius:50px;transition:.3s}
+.top-link:hover{color:#fff;border-color:rgba(255,255,255,.5)}
+
+.wrap{max-width:1200px;margin:0 auto;padding:2rem 1.5rem}
+
+/* ── Stat Cards ── */
+.stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:1rem;margin-bottom:2rem}
+@media(max-width:900px){.stats-row{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:480px){.stats-row{grid-template-columns:repeat(2,1fr)}}
+.stat{background:#fff;border-radius:14px;padding:1.3rem 1rem;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.07);border:1px solid #e8e8e8;transition:.3s}
+.stat:hover{transform:translateY(-4px);box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.stat-icon{font-size:1.8rem;margin-bottom:.4rem}
+.stat-num{font-size:2.2rem;font-weight:800;color:#0f6b28;line-height:1}
+.stat-lbl{font-size:.7rem;color:#888;margin-top:.3rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.stat.orange .stat-num{color:#e07b1a}
+
+/* ── Section ── */
+.sec{margin-bottom:2rem}
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem}
+.sec-head h2{font-size:1.1rem;color:#052e0f;display:flex;align-items:center;gap:7px}
+.sec-head .count{font-size:.78rem;color:#888;background:#f0f4f1;padding:3px 10px;border-radius:50px}
+
+/* ── Chart ── */
+.chart-card{background:#fff;border-radius:14px;padding:1.5rem;box-shadow:0 2px 10px rgba(0,0,0,.07);margin-bottom:1.5rem}
+.chart-title{font-size:.88rem;font-weight:700;color:#333;margin-bottom:1.2rem}
+.bar-chart{display:flex;align-items:flex-end;gap:5px;height:180px;padding-bottom:28px;position:relative;overflow:hidden}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;min-width:0;height:100%}
+.bar{width:100%;background:linear-gradient(180deg,#22a045,#0f6b28);border-radius:4px 4px 0 0;min-height:3px;transition:height .6s ease;cursor:default;position:relative}
+.bar:hover{background:linear-gradient(180deg,#e07b1a,#c85a10)}
+.bar:hover::after{content:attr(data-val);position:absolute;top:-24px;left:50%;transform:translateX(-50%);background:#052e0f;color:#fff;padding:2px 7px;border-radius:4px;font-size:.68rem;white-space:nowrap;pointer-events:none;z-index:5}
+.bar-lbl{font-size:.58rem;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;text-align:center}
+
+/* Device split */
+.device-row{display:flex;gap:1rem;margin-top:.8rem}
+.device-bar-wrap{flex:1}
+.device-lbl{font-size:.8rem;color:#555;margin-bottom:.3rem;display:flex;justify-content:space-between}
+.device-bar-bg{height:12px;background:#f0f4f1;border-radius:99px;overflow:hidden}
+.device-bar-fill{height:100%;border-radius:99px;transition:width .8s ease}
+.mobile-fill{background:linear-gradient(90deg,#e07b1a,#f59332)}
+.desktop-fill{background:linear-gradient(90deg,#0f6b28,#22a045)}
+
+/* ── Table ── */
+.tbl-card{background:#fff;border-radius:14px;padding:1.5rem;box-shadow:0 2px 10px rgba(0,0,0,.07);overflow:hidden}
+.tbl-wrap{overflow-x:auto;margin-top:.8rem}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{background:#f0f4f1;color:#052e0f;padding:10px 14px;text-align:left;font-weight:700;border-bottom:2px solid #d0e8d5;white-space:nowrap}
+td{padding:9px 14px;border-bottom:1px solid #f0f0f0;color:#333;vertical-align:middle}
+tr:last-child td{border:none}
+tr:hover td{background:#f9fdf9}
+.badge{display:inline-block;padding:2px 9px;border-radius:50px;font-size:.7rem;font-weight:700}
+.bg-mobile{background:#fff0e0;color:#b45309}
+.bg-desktop{background:#e6f7eb;color:#0f6b28}
+
+/* ── Empty / Loading ── */
+.empty{text-align:center;padding:3rem;color:#aaa;font-size:.88rem}
+.sb-warn{background:#fff8f0;border:1px solid #e07b1a;border-radius:10px;padding:.9rem 1.2rem;margin-bottom:1.5rem;font-size:.84rem;color:#7a3500;display:none}
+
+/* ── Tabs ── */
+.tabs{display:flex;gap:.4rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.tab{padding:8px 18px;border-radius:50px;font-size:.84rem;font-weight:700;cursor:pointer;border:2px solid #ddd;background:#fff;color:#666;transition:.3s;font-family:inherit}
+.tab.on,.tab:hover{background:#0f6b28;color:#fff;border-color:#0f6b28}
+
+/* ── Toast ── */
+#a-toast{position:fixed;bottom:2rem;right:2rem;background:#052e0f;color:#fff;padding:10px 20px;border-radius:50px;font-size:.82rem;box-shadow:0 6px 20px rgba(0,0,0,.3);z-index:9999;opacity:0;transition:.3s;pointer-events:none}
+#a-toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- AUTH GATE -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <img src="shetkarilogo.jpg" alt="Logo" onerror="this.style.display='none'">
+    <h2>Analytics Dashboard</h2>
+    <p>कर्तृत्ववान शेतकरी — Owner Access</p>
+    <input type="password" id="gate-pass" class="gate-input" placeholder="Admin password टाका">
+    <button class="gate-btn" onclick="checkPass()">🔓 प्रवेश करा</button>
+    <div class="gate-err" id="gate-err"></div>
+    <a href="index.html" style="display:block;margin-top:1rem;color:#888;font-size:.8rem;text-decoration:none">← Website पहा</a>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" style="display:none">
+
+  <div class="topbar">
+    <h1>
+      <img src="shetkarilogo.jpg" alt="" onerror="this.style.display='none'">
+      Analytics — कर्तृत्ववान शेतकरी
+    </h1>
+    <div class="topbar-right">
+      <span style="font-size:.76rem;color:rgba(255,255,255,.6);display:flex;align-items:center;gap:5px">
+        <span class="rt-dot"></span> Live
+      </span>
+      <a href="index.html" target="_blank" class="top-link">🌐 Website</a>
+      <a href="admin.html" class="top-link">⚙️ Admin</a>
+      <a href="#" onclick="logoutAdmin()" class="top-link">🚪 Logout</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <!-- SB Not configured warning -->
+    <div class="sb-warn" id="sb-warn">
+      ⚠️ <strong>Supabase configured नाही.</strong> <code>supabase-config.js</code> मध्ये URL आणि key टाका.
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab on" onclick="showTab('overview')">📊 Overview</button>
+      <button class="tab" onclick="showTab('users')">👥 सर्व Users</button>
+      <button class="tab" onclick="showTab('chart')">📈 Chart</button>
+    </div>
+
+    <!-- TAB: Overview -->
+    <div id="tab-overview">
+      <!-- Stat Cards -->
+      <div class="stats-row" id="stats-row">
+        <div class="stat"><div class="stat-icon">📅</div><div class="stat-num" id="s-today">—</div><div class="stat-lbl">आज</div></div>
+        <div class="stat"><div class="stat-icon">📆</div><div class="stat-num" id="s-week">—</div><div class="stat-lbl">आठवडा</div></div>
+        <div class="stat"><div class="stat-icon">🗓️</div><div class="stat-num" id="s-month">—</div><div class="stat-lbl">महिना</div></div>
+        <div class="stat"><div class="stat-icon">📅</div><div class="stat-num" id="s-year">—</div><div class="stat-lbl">वर्ष</div></div>
+        <div class="stat orange"><div class="stat-icon">🔢</div><div class="stat-num" id="s-total">—</div><div class="stat-lbl">एकूण Logins</div></div>
+        <div class="stat orange"><div class="stat-icon">👥</div><div class="stat-num" id="s-unique">—</div><div class="stat-lbl">Unique Users</div></div>
+      </div>
+
+      <!-- Device split -->
+      <div class="chart-card">
+        <div class="chart-title">📱 Mobile vs 💻 Desktop</div>
+        <div class="device-row">
+          <div class="device-bar-wrap">
+            <div class="device-lbl"><span>📱 Mobile</span><span id="d-mob-pct">—%</span></div>
+            <div class="device-bar-bg"><div class="device-bar-fill mobile-fill" id="d-mob-bar" style="width:0%"></div></div>
+          </div>
+          <div class="device-bar-wrap">
+            <div class="device-lbl"><span>💻 Desktop</span><span id="d-desk-pct">—%</span></div>
+            <div class="device-bar-bg"><div class="device-bar-fill desktop-fill" id="d-desk-bar" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent logins preview (top 10) -->
+      <div class="tbl-card">
+        <div class="sec-head">
+          <h2>🕐 अलीकडील Logins</h2>
+          <span class="count" id="recent-count"></span>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Email</th><th>नाव</th><th>Login वेळ व तारीख</th><th>Device</th></tr>
+            </thead>
+            <tbody id="recent-tbody"><tr><td colspan="5" class="empty">⏳ Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: All Users -->
+    <div id="tab-users" style="display:none">
+      <div class="tbl-card">
+        <div class="sec-head">
+          <h2>👥 सर्व Login Records</h2>
+          <span class="count" id="all-count"></span>
+        </div>
+        <div style="margin-bottom:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
+          <input type="search" id="user-search" placeholder="🔍 Email किंवा नावाने शोधा..."
+            style="padding:8px 14px;border:1px solid #ddd;border-radius:50px;font-size:.82rem;outline:none;flex:1;min-width:200px"
+            oninput="filterUsers()">
+          <select id="device-filter" style="padding:8px 14px;border:1px solid #ddd;border-radius:50px;font-size:.82rem;outline:none;background:#fff"
+            onchange="filterUsers()">
+            <option value="">सर्व Devices</option>
+            <option value="Mobile">📱 Mobile</option>
+            <option value="Desktop">💻 Desktop</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Email</th><th>नाव</th><th>Login वेळ व तारीख</th><th>Device</th></tr>
+            </thead>
+            <tbody id="all-tbody"><tr><td colspan="5" class="empty">⏳ Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Chart -->
+    <div id="tab-chart" style="display:none">
+      <div class="chart-card">
+        <div class="chart-title">📈 Daily Logins — गेल्या ३० दिवस</div>
+        <div class="bar-chart" id="daily-chart"><div class="empty">⏳ Loading...</div></div>
+      </div>
+    </div>
+
+  </div><!-- /wrap -->
+</div><!-- /dashboard -->
+
+<div id="a-toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="supabase-config.js"></script>
+<script>
+const ADMIN_PASS = 'shetkari2025'; // ← password बदलायचा असल्यास येथे
+var _allUsers = [];
+
+// ── Auth ──
+function checkPass() {
+  var v = document.getElementById('gate-pass').value;
+  if (v === ADMIN_PASS) {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    localStorage.setItem('ks_admin', 'yes');
+    initDashboard();
+  } else {
+    document.getElementById('gate-err').textContent = '❌ Password चुकीचे आहे.';
+  }
+}
+document.getElementById('gate-pass').addEventListener('keydown', function(e) { if (e.key==='Enter') checkPass(); });
+if (localStorage.getItem('ks_admin') === 'yes') {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  initDashboard();
+}
+function logoutAdmin() { localStorage.removeItem('ks_admin'); location.reload(); }
+
+// ── Tabs ──
+function showTab(name) {
+  ['overview','users','chart'].forEach(function(t) {
+    document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach(function(btn, i) {
+    btn.classList.toggle('on', ['overview','users','chart'][i] === name);
+  });
+}
+
+// ── Init ──
+async function initDashboard() {
+  if (!window.SB || !window.SB.isReady()) {
+    document.getElementById('sb-warn').style.display = 'block';
+    return;
+  }
+  await loadAnalytics();
+}
+
+// ── Load Analytics ──
+async function loadAnalytics() {
+  try {
+    var d = await window.SB.analytics();
+    if (!d) { toast('❌ Data load झाला नाही.'); return; }
+
+    // Stats
+    document.getElementById('s-today').textContent  = d.today;
+    document.getElementById('s-week').textContent   = d.week;
+    document.getElementById('s-month').textContent  = d.month;
+    document.getElementById('s-year').textContent   = d.year;
+    document.getElementById('s-total').textContent  = d.total;
+    document.getElementById('s-unique').textContent = d.unique;
+
+    // Device split
+    var total = d.mobile + d.desktop || 1;
+    var mobPct  = Math.round(d.mobile  / total * 100);
+    var deskPct = Math.round(d.desktop / total * 100);
+    document.getElementById('d-mob-pct').textContent  = mobPct  + '%';
+    document.getElementById('d-desk-pct').textContent = deskPct + '%';
+    setTimeout(function() {
+      document.getElementById('d-mob-bar').style.width  = mobPct  + '%';
+      document.getElementById('d-desk-bar').style.width = deskPct + '%';
+    }, 200);
+
+    // Store all users
+    _allUsers = d.recent;
+    document.getElementById('all-count').textContent  = d.recent.length + ' records';
+    document.getElementById('recent-count').textContent = 'अलीकडील ' + Math.min(d.recent.length, 15);
+
+    // Recent table (top 15)
+    renderTable('recent-tbody', d.recent.slice(0, 15), 1);
+    // All users table
+    renderTable('all-tbody', d.recent, 1);
+
+    // Daily chart
+    drawChart('daily-chart', d.dailyMap);
+
+  } catch(err) { toast('❌ ' + err.message); }
+}
+
+function renderTable(tbodyId, rows, start) {
+  var tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  if (!rows || !rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">📭 कोणीही Login केले नाही अजून.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(function(u, i) {
+    var dt  = new Date(u.logged_at);
+    // Date: DD/MM/YYYY HH:MM
+    var pad = function(n){ return String(n).padStart(2,'0'); };
+    var dateStr = pad(dt.getDate()) + '/' + pad(dt.getMonth()+1) + '/' + dt.getFullYear() +
+                  '  ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+    var dev = u.device === 'Mobile'
+      ? '<span class="badge bg-mobile">📱 Mobile</span>'
+      : '<span class="badge bg-desktop">💻 Desktop</span>';
+    return '<tr>' +
+      '<td style="color:#aaa;font-size:.76rem">' + (i + start) + '</td>' +
+      '<td><strong>' + u.email + '</strong></td>' +
+      '<td>' + (u.name || '—') + '</td>' +
+      '<td style="font-size:.78rem;color:#666;white-space:nowrap">' + dateStr + '</td>' +
+      '<td>' + dev + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function filterUsers() {
+  var q   = document.getElementById('user-search').value.toLowerCase();
+  var dev = document.getElementById('device-filter').value;
+  var filtered = _allUsers.filter(function(u) {
+    var matchQ   = !q   || u.email.toLowerCase().includes(q) || (u.name||'').toLowerCase().includes(q);
+    var matchDev = !dev || u.device === dev;
+    return matchQ && matchDev;
+  });
+  document.getElementById('all-count').textContent = filtered.length + ' records';
+  renderTable('all-tbody', filtered, 1);
+}
+
+function drawChart(id, dataMap) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var entries = Object.entries(dataMap || {});
+  if (!entries.length) { el.innerHTML = '<div class="empty">📭 Data नाही</div>'; return; }
+  var max = Math.max.apply(null, entries.map(function(e){ return e[1]; }));
+  if (!max) max = 1;
+  el.innerHTML = entries.map(function(entry) {
+    var key = entry[0], val = entry[1];
+    var pct = Math.round(val / max * 100);
+    var shortK = key.length > 5 ? key.slice(5) : key; // MM-DD
+    return '<div class="bar-col">' +
+      '<div class="bar" style="height:' + Math.max(pct, 2) + '%" data-val="' + val + '"></div>' +
+      '<div class="bar-lbl">' + shortK + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function toast(msg) {
+  var t = document.getElementById('a-toast');
+  if (!t) return;
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); }, 3500);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin | कर्तृत्ववान शेतकरी</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌾</text></svg>">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .admin-header{
+      background:var(--green-900);color:#fff;padding:1.2rem 0;
+      border-bottom:3px solid var(--saffron);position:sticky;top:0;z-index:100;
+    }
+    .admin-header-inner{max-width:1000px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between}
+    .admin-header h1{font-family:var(--font-heading);font-size:1.3rem;display:flex;align-items:center;gap:8px}
+    .admin-header h1 em{color:var(--gold-l);font-style:normal}
+    .admin-wrap{max-width:1000px;margin:2rem auto;padding:0 1.5rem}
+    .admin-tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap}
+    .tab-btn{
+      padding:9px 20px;border-radius:50px;font-size:.85rem;font-weight:700;
+      background:var(--grey-100);color:var(--grey-600);transition:.3s;
+    }
+    .tab-btn.active,.tab-btn:hover{background:var(--green-700);color:#fff}
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+    .paper-list{display:grid;gap:1rem;margin-top:1.5rem}
+    .paper-item{
+      background:#fff;border:1px solid var(--grey-100);border-radius:var(--radius);
+      padding:1rem 1.2rem;display:flex;align-items:center;gap:1rem;
+      box-shadow:var(--shadow-sm);transition:.3s;
+    }
+    .paper-item:hover{border-color:var(--green-400);box-shadow:var(--shadow-md)}
+    .paper-thumb{width:60px;height:42px;border-radius:6px;object-fit:cover;flex-shrink:0;background:var(--green-100)}
+    .paper-meta{flex:1}
+    .paper-meta h4{font-family:var(--font-heading);font-size:.95rem;margin-bottom:2px}
+    .paper-meta p{font-size:.78rem;color:var(--grey-400)}
+    .paper-actions{display:flex;gap:.5rem}
+    .del-btn{padding:6px 14px;border-radius:50px;font-size:.78rem;font-weight:700;background:#fee2e2;color:#991b1b;transition:.3s}
+    .del-btn:hover{background:#dc2626;color:#fff}
+    .empty-state{text-align:center;padding:3rem;color:var(--grey-400)}
+  </style>
+</head>
+<body>
+
+<!-- Password Gate (initially shown) -->
+<div class="admin-pass-gate" id="pass-gate">
+  <div class="pass-card">
+    <div style="font-size:3rem">🔐</div>
+    <h2>Admin Panel</h2>
+    <p>कर्तृत्ववान शेतकरी</p>
+    <div class="form-group" style="text-align:left;margin-top:1rem">
+      <label class="admin-label">Password *</label>
+      <input type="password" id="admin-pass" class="form-input" placeholder="Admin password टाका" autocomplete="current-password">
+    </div>
+    <button class="form-submit" onclick="checkPass()" style="margin-top:.5rem">🔓 प्रवेश करा</button>
+    <div id="pass-msg" class="form-msg" style="margin-top:.8rem"></div>
+    <a href="index.html" class="back-link" style="margin-top:1rem">← मुख्यपृष्ठ</a>
+  </div>
+</div>
+
+<!-- Admin Panel (hidden until password correct) -->
+<div id="admin-panel" style="display:none">
+
+  <div class="admin-header">
+    <div class="admin-header-inner">
+      <h1>⚙️ Admin Panel — <em>कर्तृत्ववान</em> शेतकरी</h1>
+      <a href="index.html" style="color:rgba(255,255,255,.7);font-size:.85rem;hover:color:#fff">← Website पहा</a>
+    </div>
+  </div>
+
+  <div class="admin-wrap">
+    <!-- Tabs -->
+    <div class="admin-tabs">
+      <button class="tab-btn active" onclick="switchTab('add')">➕ अंक जोडा</button>
+      <button class="tab-btn" onclick="switchTab('list')">📋 सर्व अंक</button>
+      <button class="tab-btn" onclick="switchTab('guide')">📖 मार्गदर्शन</button>
+    </div>
+
+    <!-- Tab 1: Add Paper -->
+    <div class="tab-content active" id="tab-add">
+      <div class="admin-card">
+        <h3>➕ नवीन अंक जोडा</h3>
+        <form id="admin-form">
+          <div class="admin-grid">
+            <div>
+              <label class="admin-label">📰 अंकाचे नाव *</label>
+              <input type="text" id="a-title" class="admin-input" placeholder="उदा. कर्तृत्ववान शेतकरी – अंक ७" required>
+            </div>
+            <div>
+              <label class="admin-label">📅 प्रकाशन तारीख *</label>
+              <input type="text" id="a-date" class="admin-input" placeholder="उदा. १३ मे २०२५" required>
+            </div>
+            <div class="full">
+              <label class="admin-label">📝 थोडक्यात माहिती</label>
+              <input type="text" id="a-desc" class="admin-input" placeholder="या अंकातील मुख्य बातम्यांबद्दल...">
+            </div>
+            <div>
+              <label class="admin-label">🖼️ Thumbnail URL</label>
+              <input type="url" id="a-thumb" class="admin-input" placeholder="https://example.com/image.jpg">
+            </div>
+            <div>
+              <label class="admin-label">📄 PDF File Path</label>
+              <input type="text" id="a-pdf" class="admin-input" placeholder="newspapers/ank-7.pdf">
+            </div>
+          </div>
+          <div class="admin-btns">
+            <button type="submit" class="admin-submit">➕ अंक जोडा</button>
+            <button type="reset" class="admin-reset">🔄 Reset</button>
+          </div>
+          <div id="admin-msg" class="form-msg" style="margin-top:1rem"></div>
+        </form>
+
+        <div id="json-box" style="display:none;margin-top:1.5rem">
+          <p style="font-size:.82rem;color:#666;margin-bottom:.4rem">
+            📋 हा JSON copy करा आणि <code style="background:var(--grey-100);padding:2px 6px;border-radius:4px">news.json</code> मध्ये add करा:
+          </p>
+          <pre id="admin-json"></pre>
+        </div>
+
+        <div class="admin-note">
+          📌 <strong>महत्वाचे:</strong><br>
+          १. PDF फाईल <code>newspapers/</code> folder मध्ये upload करा<br>
+          २. Thumbnail साठी image URL द्या किंवा रिकामे सोडा (auto-generate होईल)<br>
+          ३. JSON generate झाल्यावर ते copy करून <code>news.json</code> मध्ये array मध्ये add करा<br>
+          ४. Vercel वर deploy केल्यास GitHub वर file push करा
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: All Papers List -->
+    <div class="tab-content" id="tab-list">
+      <div class="admin-card">
+        <h3>📋 सर्व अंक</h3>
+        <div class="paper-list" id="paper-list">
+          <div class="empty-state">⏳ लोड होत आहे...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Guide -->
+    <div class="tab-content" id="tab-guide">
+      <div class="admin-card">
+        <h3>📖 Website वापरण्याचे मार्गदर्शन</h3>
+        <div style="font-size:.88rem;line-height:2;color:var(--grey-700)">
+          <h4 style="color:var(--green-800);margin:1rem 0 .3rem;font-family:var(--font-heading)">📰 नवीन अंक कसा जोडावा:</h4>
+          <ol style="padding-left:1.5rem">
+            <li>PDF फाईल <code>newspapers/</code> folder मध्ये ठेवा</li>
+            <li>"अंक जोडा" tab मध्ये form भरा</li>
+            <li>Generate झालेला JSON copy करा</li>
+            <li><code>news.json</code> फाईल उघडा, array मध्ये entry paste करा</li>
+            <li>GitHub वर push करा → Vercel auto-deploy होईल</li>
+          </ol>
+
+          <h4 style="color:var(--green-800);margin:1rem 0 .3rem;font-family:var(--font-heading)">📺 YouTube Videos:</h4>
+          <ol style="padding-left:1.5rem">
+            <li>Google Cloud Console वर YouTube Data API v3 enable करा</li>
+            <li>API Key आणि Channel ID <code>youtube.js</code> मध्ये paste करा</li>
+            <li>Videos automatically fetch होतील</li>
+          </ol>
+
+          <h4 style="color:var(--green-800);margin:1rem 0 .3rem;font-family:var(--font-heading)">📧 Email Setup:</h4>
+          <ol style="padding-left:1.5rem">
+            <li>emailjs.com वर account करा</li>
+            <li>Gmail service connect करा</li>
+            <li>User template + Admin template बनवा</li>
+            <li>Keys <code>login.js</code> मध्ये paste करा</li>
+          </ol>
+
+          <h4 style="color:var(--green-800);margin:1rem 0 .3rem;font-family:var(--font-heading)">🔐 Admin Password बदलणे:</h4>
+          <p style="padding-left:1.5rem"><code>admin.html</code> मध्ये <code>ADMIN_PASS</code> variable update करा</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Admin Password — बदलणे: येथे नवीन password टाका
+  const ADMIN_PASS = 'shetkari2025';
+
+  // Password check
+  function checkPass() {
+    const val = document.getElementById('admin-pass').value;
+    const msg = document.getElementById('pass-msg');
+    if (val === ADMIN_PASS) {
+      document.getElementById('pass-gate').style.display = 'none';
+      document.getElementById('admin-panel').style.display = 'block';
+      localStorage.setItem('ks_admin', 'yes');
+      loadPaperList();
+    } else {
+      msg.className = 'form-msg error';
+      msg.textContent = '❌ Password चुकीचे आहे. पुन्हा प्रयत्न करा.';
+    }
+  }
+
+  // Enter key support
+  document.getElementById('admin-pass')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkPass();
+  });
+
+  // Already authenticated
+  if (localStorage.getItem('ks_admin') === 'yes') {
+    document.getElementById('pass-gate').style.display = 'none';
+    document.getElementById('admin-panel').style.display = 'block';
+    loadPaperList();
+  }
+
+  // Tab switching
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach((b,i) => {
+      b.classList.toggle('active', ['add','list','guide'][i] === name);
+    });
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById(`tab-${name}`).classList.add('active');
+    if (name === 'list') loadPaperList();
+  }
+
+  // Admin form
+  const adminForm = document.getElementById('admin-form');
+  const adminMsg  = document.getElementById('admin-msg');
+  if (adminForm) {
+    adminForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const title = document.getElementById('a-title').value.trim();
+      const date  = document.getElementById('a-date').value.trim();
+      const desc  = document.getElementById('a-desc').value.trim();
+      const thumb = document.getElementById('a-thumb').value.trim();
+      const pdf   = document.getElementById('a-pdf').value.trim();
+      if (!title || !date) { showAMsg('❌ नाव आणि तारीख आवश्यक आहे.','error'); return; }
+      const entry = {
+        id: Date.now(),
+        title, date,
+        dateISO: new Date().toISOString().split('T')[0],
+        thumbnail: thumb || `https://placehold.co/480x300/0f6b28/ffffff?text=${encodeURIComponent(title)}`,
+        pdf: pdf || '',
+        description: desc
+      };
+      const jsonBox = document.getElementById('json-box');
+      const jsonPre = document.getElementById('admin-json');
+      if (jsonPre) jsonPre.textContent = JSON.stringify(entry, null, 2);
+      if (jsonBox) jsonBox.style.display = 'block';
+      showAMsg('✅ JSON ready! Copy करा आणि news.json मध्ये paste करा.', 'success');
+      adminForm.reset();
+    });
+  }
+
+  function showAMsg(text, type) {
+    if (!adminMsg) return;
+    adminMsg.textContent = text;
+    adminMsg.className = `form-msg ${type}`;
+    setTimeout(() => { adminMsg.style.display = 'none'; adminMsg.className = 'form-msg'; }, 8000);
+  }
+
+  // Load paper list from news.json
+  async function loadPaperList() {
+    const list = document.getElementById('paper-list');
+    if (!list) return;
+    try {
+      const res = await fetch('news.json');
+      const papers = await res.json();
+      if (!papers.length) { list.innerHTML = '<div class="empty-state">कोणतेही अंक नाहीत.</div>'; return; }
+      list.innerHTML = papers.map(p => `
+        <div class="paper-item">
+          <img class="paper-thumb" src="${p.thumbnail}" alt="${p.title}"
+               onerror="this.style.background='var(--green-100)'">
+          <div class="paper-meta">
+            <h4>${p.title}</h4>
+            <p>📅 ${p.date} &nbsp;|&nbsp; ${p.pdf ? '📄 PDF available' : '⚠️ PDF नाही'}</p>
+          </div>
+          <div class="paper-actions">
+            ${p.pdf ? `<a href="${p.pdf}" target="_blank" style="padding:6px 14px;border-radius:50px;font-size:.78rem;font-weight:700;background:var(--green-100);color:var(--green-800)">👁 View</a>` : ''}
+          </div>
+        </div>`).join('');
+    } catch {
+      list.innerHTML = '<div class="empty-state">❌ news.json लोड होऊ शकली नाही. Local server वापरा.</div>';
+    }
+  }
+</script>
+</body>
+</html>
