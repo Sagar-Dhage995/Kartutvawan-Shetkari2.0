@@ -639,43 +639,62 @@ async function openPDF(p) {
     if (pi) pi.textContent = n + ' pages';
     if (pagesEl) pagesEl.innerHTML = '';
 
-    // PERFORMANCE: render only page 1 immediately for fast first paint.
-    // Remaining pages are lazy-rendered just before they scroll into view —
-    // this prevents mobile from blocking the main thread rendering every
-    // page upfront, so the first page appears quickly and scrolling stays smooth.
+    // SWIPE NAVIGATION: pages render as a horizontal, swipeable carousel
+    // (native CSS scroll-snap = smooth, GPU-accelerated, no custom JS swipe
+    // handling needed for navigation itself — most performant approach).
+    // Page 1 renders immediately; the rest lazy-render just before they
+    // swipe into view so opening a PDF feels instant.
+    pagesEl.classList.add('pdf-swipe-track');
+    pagesEl.style.cssText = 'flex:1;display:flex;flex-direction:row;overflow-x:auto;overflow-y:hidden;' +
+      'scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;background:#555;' +
+      'will-change:scroll-position;contain:content;height:100%';
+
     await _renderPage(1, n, pagesEl);
 
     if (n > 1) {
       _setupLazyPages(2, n, pagesEl);
-    } else {
-      _initPinchZoom(pagesEl);
     }
+    _setupSwipeIndicator(pagesEl, n);
   } catch(err) {
     if (pagesEl) pagesEl.innerHTML = '<div style="padding:3rem;text-align:center;color:#aaa">❌ ' + err.message + '</div>';
   }
 }
 
-// ── Create lightweight placeholders for remaining pages, render lazily ──
-function _setupLazyPages(startPage, total, container) {
-  var firstCanvas = container.querySelector('canvas');
-  var aspect = firstCanvas ? (firstCanvas.height / firstCanvas.width) : 1.414;
-  var cssW   = container.clientWidth || window.innerWidth || 700;
-  var phH    = Math.round(cssW * aspect);
+// ── Update "x / n" page indicator as the user swipes ──
+function _setupSwipeIndicator(container, total) {
+  var pi = document.getElementById('pdf-page-info');
+  if (!pi) return;
+  var ticking = false;
+  container.addEventListener('scroll', function() {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function() {
+      var w = container.clientWidth || 1;
+      var idx = Math.round(container.scrollLeft / w) + 1;
+      if (idx < 1) idx = 1;
+      if (idx > total) idx = total;
+      pi.textContent = idx + ' / ' + total;
+      ticking = false;
+    });
+  }, { passive: true });
+}
 
+// ── Create lightweight placeholders for remaining pages, render lazily ──
+// Each placeholder/page is a full-width "slide" (flex:0 0 100%) that snaps
+// into place — same swipeable layout as the immediately-rendered page 1.
+function _setupLazyPages(startPage, total, container) {
   var placeholders = [];
   for (var pg = startPage; pg <= total; pg++) {
     var ph = document.createElement('div');
     ph.className = 'pdf-page-placeholder';
     ph.dataset.page = pg;
-    ph.style.cssText = 'width:' + cssW + 'px;height:' + phH + 'px;margin-bottom:12px;background:#666;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:.78rem;font-family:sans-serif';
+    ph.style.cssText = 'flex:0 0 100%;scroll-snap-align:start;height:100%;display:flex;' +
+      'align-items:center;justify-content:center;background:#666;color:#ccc;' +
+      'font-size:.8rem;font-family:sans-serif';
     ph.textContent = '⏳ Page ' + pg + ' / ' + total;
     container.appendChild(ph);
     placeholders.push(ph);
   }
-
-  // Wrap all current children (rendered page 1 + placeholders) for pinch-zoom.
-  // Lazy pages later replace their placeholder in-place, staying inside this wrapper.
-  _initPinchZoom(container);
 
   if (typeof IntersectionObserver === 'undefined') {
     // Fallback: no lazy loading support — render all immediately
@@ -686,6 +705,10 @@ function _setupLazyPages(startPage, total, container) {
     return;
   }
 
+  // root = the swipe container itself (not the viewport) since pages sit
+  // side-by-side horizontally; rootMargin preloads ~1 page ahead/behind
+  // so the next/previous page is already rendered by the time the user
+  // swipes to it — keeps swiping feeling instant.
   var observer = new IntersectionObserver(function(entries) {
     entries.forEach(function(entry) {
       if (entry.isIntersecting) {
@@ -694,79 +717,65 @@ function _setupLazyPages(startPage, total, container) {
         _renderLazyPage(parseInt(ph.dataset.page, 10), total, ph);
       }
     });
-  }, { root: null, rootMargin: '1000px 0px', threshold: 0.01 });
+  }, { root: container, rootMargin: '0px 600px 0px 600px', threshold: 0.01 });
 
   placeholders.forEach(function(ph) { observer.observe(ph); });
 }
 
 // ── Render a lazily-loaded page, replacing its placeholder in place ──
+// Fits the page to the FULL slide (container width AND height), since each
+// page is now a single full-screen swipeable slide rather than part of a
+// vertically stacked list.
 async function _renderLazyPage(num, total, placeholderEl) {
   try {
     var page = await _pdfDoc.getPage(num);
-    var cssW = placeholderEl.clientWidth || window.innerWidth || 700;
-    var DISPLAY_SCALE = 1.5;
-    var vp   = page.getViewport({ scale: DISPLAY_SCALE });
-    var cssH = Math.round(vp.height * cssW / vp.width);
-
-    var wrap = document.createElement('div');
-    wrap.style.cssText = 'position:relative;margin-bottom:12px;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);border-radius:4px;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:pan-y pinch-zoom';
-    wrap.style.width  = cssW + 'px';
-    wrap.style.height = cssH + 'px';
-
-    var lbl = document.createElement('div');
-    lbl.style.cssText = 'position:absolute;top:6px;left:6px;background:rgba(0,0,0,.55);color:#fff;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:50px;z-index:4;pointer-events:none;font-family:sans-serif';
-    lbl.textContent = num + ' / ' + total;
-
-    var cv = document.createElement('canvas');
-    cv.width  = vp.width;
-    cv.height = vp.height;
-    cv.style.cssText = 'position:absolute;top:0;left:0;width:' + cssW + 'px;height:' + cssH + 'px;display:block';
-
-    var ov = document.createElement('canvas');
-    ov.width  = cssW;
-    ov.height = cssH;
-    ov.style.cssText = 'position:absolute;top:0;left:0;width:' + cssW + 'px;height:' + cssH + 'px;z-index:3;touch-action:none;display:none';
-    ov.dataset.selMode = '0';
-
-    wrap.appendChild(lbl);
-    wrap.appendChild(cv);
-    wrap.appendChild(ov);
-
-    await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
-
-    cv._pageRef   = page;
-    cv._dispScale = DISPLAY_SCALE;
-    cv._cssW      = cssW;
-    cv._cssH      = cssH;
-
-    _attachTouchSel(ov, cv, wrap, cssW, cssH, num);
-    _attachMouseSel(ov, cv, cssW, cssH, num);
-
+    var built = _buildPageSlide(page, num, total, placeholderEl);
+    await built.renderPromise;
     if (placeholderEl.parentNode) {
-      placeholderEl.parentNode.replaceChild(wrap, placeholderEl);
+      placeholderEl.parentNode.replaceChild(built.wrap, placeholderEl);
     }
   } catch(e) {
     placeholderEl.textContent = '❌ Page ' + num + ' load error';
   }
 }
 
-// ── Render one PDF page to canvas ──
-// Fast load: render at scale 1.5 for display
-// HD download: re-render at dpr×3 when user downloads
+// ── Render one PDF page as a full-screen swipeable slide ──
+// Fast load: render at a scale that fits the slide for quick, crisp display.
+// HD download: re-render at dpr×3 only when the user actually downloads.
 async function _renderPage(num, total, container) {
-  var page  = await _pdfDoc.getPage(num);
-  var cssW  = container.clientWidth || window.innerWidth || 700;
+  var page = await _pdfDoc.getPage(num);
+  var built = _buildPageSlide(page, num, total, null);
+  container.appendChild(built.wrap);
+  await built.renderPromise;
+}
 
-  // FAST render scale — just enough for clear reading
-  var DISPLAY_SCALE = 1.5;
+// ── Shared slide builder used by both immediate and lazy page rendering ──
+function _buildPageSlide(page, num, total, refEl) {
+  var slideW = (refEl ? refEl.clientWidth  : 0) || document.getElementById('pdf-pages').clientWidth  || window.innerWidth  || 700;
+  var slideH = (refEl ? refEl.clientHeight : 0) || document.getElementById('pdf-pages').clientHeight || window.innerHeight || 700;
+
+  var dpr = window.devicePixelRatio || 1;
+  var nat = page.getViewport({ scale: 1 });
+
+  // Fit the page fully inside the slide (contain), then render slightly
+  // sharper than the display size needs for crisp text on Retina/mobile.
+  var fitScale   = Math.min(slideW / nat.width, slideH / nat.height);
+  var DISPLAY_SCALE = Math.max(fitScale * Math.min(dpr, 2), 0.5);
   var vp   = page.getViewport({ scale: DISPLAY_SCALE });
-  var cssH = Math.round(vp.height * cssW / vp.width);
+  var dispW = Math.round(vp.width  / Math.min(dpr, 2));
+  var dispH = Math.round(vp.height / Math.min(dpr, 2));
 
-  // Wrapper
+  // Slide — full width/height, snaps into place, centers the page box
   var wrap = document.createElement('div');
-  wrap.style.cssText = 'position:relative;margin-bottom:12px;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);border-radius:4px;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:pan-y pinch-zoom';
-  wrap.style.width  = cssW + 'px';
-  wrap.style.height = cssH + 'px';
+  wrap.className = 'pdf-page-slide';
+  wrap.style.cssText = 'flex:0 0 100%;scroll-snap-align:start;height:100%;display:flex;' +
+    'align-items:center;justify-content:center;background:#555;overflow:hidden';
+
+  // Page box — exact rendered size, centered by the slide's flex layout
+  var box = document.createElement('div');
+  box.style.cssText = 'position:relative;width:' + dispW + 'px;height:' + dispH + 'px;' +
+    'background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);border-radius:4px;overflow:hidden;' +
+    'user-select:none;-webkit-user-select:none';
 
   // Page label
   var lbl = document.createElement('div');
@@ -777,33 +786,34 @@ async function _renderPage(num, total, container) {
   var cv = document.createElement('canvas');
   cv.width  = vp.width;
   cv.height = vp.height;
-  cv.style.cssText = 'position:absolute;top:0;left:0;width:' + cssW + 'px;height:' + cssH + 'px;display:block';
+  cv.style.cssText = 'position:absolute;top:0;left:0;width:' + dispW + 'px;height:' + dispH + 'px;display:block';
 
-  // Selection overlay — CSS px, touch-action none only on this layer
+  // Selection overlay
   var ov = document.createElement('canvas');
-  ov.width  = cssW;
-  ov.height = cssH;
-  ov.style.cssText = 'position:absolute;top:0;left:0;width:' + cssW + 'px;height:' + cssH + 'px;z-index:3;touch-action:none;display:none';
+  ov.width  = dispW;
+  ov.height = dispH;
+  ov.style.cssText = 'position:absolute;top:0;left:0;width:' + dispW + 'px;height:' + dispH + 'px;z-index:3;touch-action:none;display:none';
   ov.dataset.selMode = '0';
 
-  wrap.appendChild(lbl);
-  wrap.appendChild(cv);
-  wrap.appendChild(ov);
-  container.appendChild(wrap);
+  box.appendChild(lbl);
+  box.appendChild(cv);
+  box.appendChild(ov);
+  wrap.appendChild(box);
 
-  // Render quickly at display scale
-  await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+  var renderPromise = page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise.then(function() {
+    cv._pageRef   = page;
+    cv._dispScale = DISPLAY_SCALE;
+    cv._cssW      = dispW;
+    cv._cssH      = dispH;
 
-  // Store page ref for HD re-render on download
-  cv._pageRef   = page;
-  cv._dispScale = DISPLAY_SCALE;
-  cv._cssW      = cssW;
-  cv._cssH      = cssH;
+    // Long-press (hold) on the page box → select an individual news item
+    // to download. Swiping (horizontal movement) cancels the hold so it
+    // never interferes with normal page-to-page swipe navigation.
+    _attachTouchSel(ov, cv, box, dispW, dispH, num);
+    _attachMouseSel(ov, cv, dispW, dispH, num);
+  });
 
-  // Touch: tap = scroll (normal), hold = select mode
-  _attachTouchSel(ov, cv, wrap, cssW, cssH, num);
-  // Mouse: drag = select
-  _attachMouseSel(ov, cv, cssW, cssH, num);
+  return { wrap: wrap, renderPromise: renderPromise };
 }
 
 // ── Touch: tap=scroll, hold=select ──
@@ -812,7 +822,8 @@ function _attachTouchSel(ov, pdfCv, wrap, cssW, cssH, pageNum) {
   var holdActive = false;
   var sx = 0, sy = 0, ex = 0, ey = 0;
   var ctx = ov.getContext('2d');
-  var moveHandler = null;   // attached/detached dynamically — see fix below
+  var moveHandler = null;       // blocking listener — attached only during active select
+  var preHoldMoveHandler = null; // lightweight, passive — only watches for swipe-cancel
 
   function getPos(e) {
     var r = ov.getBoundingClientRect();
@@ -829,20 +840,38 @@ function _attachTouchSel(ov, pdfCv, wrap, cssW, cssH, pageNum) {
       moveHandler = null;
     }
   }
+  function _detachPreHold() {
+    if (preHoldMoveHandler) {
+      wrap.removeEventListener('touchmove', preHoldMoveHandler);
+      preHoldMoveHandler = null;
+    }
+  }
 
   wrap.addEventListener('touchstart', function(e) {
     var p = getPos(e);
     sx = p.x; sy = p.y; ex = p.x; ey = p.y;
     holdActive = false;
+
+    // SWIPE FIX: a long-press only counts as "hold to select" if the
+    // finger stays roughly still. If the user is actually swiping to the
+    // next/previous page, cancel the pending hold immediately so it never
+    // interferes with page navigation. This listener is passive (it never
+    // calls preventDefault), so it does not block the native swipe at all.
+    preHoldMoveHandler = function(ev) {
+      var p2 = getPos(ev);
+      if (Math.abs(p2.x - sx) > 10 || Math.abs(p2.y - sy) > 10) {
+        clearTimeout(holdTimer);
+        _detachPreHold();
+      }
+    };
+    wrap.addEventListener('touchmove', preHoldMoveHandler, { passive: true });
+
     holdTimer = setTimeout(function() {
-      // Hold detected — enter select mode.
-      // FIX (mobile scroll perf): the blocking (non-passive) touchmove
-      // listener is attached ONLY now, while the user is actively
-      // selecting. Before this point (normal tap/scroll) there is NO
-      // non-passive touchmove listener on the page at all, so the
-      // browser can scroll using its fast native/compositor path
-      // instead of waiting on JS every frame — this is what was
-      // causing scrolling to feel stuck/slow on mobile.
+      // Hold detected (finger stayed still for 450ms) — enter select mode.
+      // The blocking (non-passive) touchmove listener is attached ONLY
+      // now, while the user is actively selecting — never during normal
+      // swipe/scroll — so page-swiping always stays smooth.
+      _detachPreHold();
       holdActive = true;
       ov.style.display = 'block';
       _clearAllOverlays(ov);
@@ -861,6 +890,7 @@ function _attachTouchSel(ov, pdfCv, wrap, cssW, cssH, pageNum) {
 
   wrap.addEventListener('touchend', function() {
     clearTimeout(holdTimer);
+    _detachPreHold();
     _detachMove();
     if (!holdActive) return;
     holdActive = false;
@@ -869,6 +899,7 @@ function _attachTouchSel(ov, pdfCv, wrap, cssW, cssH, pageNum) {
 
   wrap.addEventListener('touchcancel', function() {
     clearTimeout(holdTimer);
+    _detachPreHold();
     _detachMove();
     holdActive = false;
   }, { passive: true });
