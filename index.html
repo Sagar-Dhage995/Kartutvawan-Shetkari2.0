@@ -331,7 +331,11 @@
     <div style="padding:.5rem 1rem;font-size:.74rem;color:rgba(255,255,255,.65);background:rgba(15,107,40,.2);flex-shrink:0">
       📖 PDF वाचा &nbsp;|&nbsp; <strong>News वर Drag करा</strong> → 📥 Download Selected News button येईल
     </div>
-    <div id="pdf-pages" style="flex:1;overflow-y:auto;overflow-x:hidden;background:#555;padding:1rem;-webkit-overflow-scrolling:touch;min-height:0;will-change:scroll-position;transform:translateZ(0);contain:content"></div>
+    <div style="position:relative;flex:1;min-height:0;overflow:hidden">
+      <div id="pdf-pages" style="height:100%;overflow-y:hidden;overflow-x:hidden;background:#555;-webkit-overflow-scrolling:touch;will-change:scroll-position;transform:translateZ(0);contain:content"></div>
+      <button id="pdf-prev-btn" onclick="pdfGoPrev()" aria-label="मागील page" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.25);font-size:1.4rem;line-height:1;cursor:pointer;z-index:20;display:flex;align-items:center;justify-content:center;transition:opacity .2s">‹</button>
+      <button id="pdf-next-btn" onclick="pdfGoNext()" aria-label="पुढील page" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(255,255,255,.25);font-size:1.4rem;line-height:1;cursor:pointer;z-index:20;display:flex;align-items:center;justify-content:center;transition:opacity .2s">›</button>
+    </div>
   </div>
 </div>
 

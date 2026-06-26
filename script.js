@@ -645,7 +645,7 @@ async function openPDF(p) {
     // Page 1 renders immediately; the rest lazy-render just before they
     // swipe into view so opening a PDF feels instant.
     pagesEl.classList.add('pdf-swipe-track');
-    pagesEl.style.cssText = 'flex:1;display:flex;flex-direction:row;overflow-x:auto;overflow-y:hidden;' +
+    pagesEl.style.cssText = 'display:flex;flex-direction:row;overflow-x:auto;overflow-y:hidden;' +
       'scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;background:#555;' +
       'will-change:scroll-position;contain:content;height:100%';
 
@@ -654,7 +654,11 @@ async function openPDF(p) {
     if (n > 1) {
       _setupLazyPages(2, n, pagesEl);
     }
+    // Store for the prev/next arrow buttons
+    _pdfNavContainer  = pagesEl;
+    _pdfNavTotalPages = n;
     _setupSwipeIndicator(pagesEl, n);
+    _updateNavArrows(1, n);
   } catch(err) {
     if (pagesEl) pagesEl.innerHTML = '<div style="padding:3rem;text-align:center;color:#aaa">❌ ' + err.message + '</div>';
   }
@@ -674,9 +678,41 @@ function _setupSwipeIndicator(container, total) {
       if (idx < 1) idx = 1;
       if (idx > total) idx = total;
       pi.textContent = idx + ' / ' + total;
+      _updateNavArrows(idx, total);
       ticking = false;
     });
   }, { passive: true });
+}
+
+// ── Left/Right navigation arrows (mobile + desktop) ──
+var _pdfNavContainer  = null;
+var _pdfNavTotalPages = 0;
+
+function pdfGoPrev() { _pdfGoToRelative(-1); }
+function pdfGoNext() { _pdfGoToRelative(1); }
+
+function _pdfGoToRelative(delta) {
+  var c = _pdfNavContainer;
+  if (!c) return;
+  var w = c.clientWidth || 1;
+  var cur = Math.round(c.scrollLeft / w);
+  var next = Math.max(0, Math.min(_pdfNavTotalPages - 1, cur + delta));
+  c.scrollTo({ left: next * w, behavior: 'smooth' });
+}
+
+function _updateNavArrows(idx, total) {
+  var prevBtn = document.getElementById('pdf-prev-btn');
+  var nextBtn = document.getElementById('pdf-next-btn');
+  if (prevBtn) {
+    var atFirst = idx <= 1;
+    prevBtn.style.opacity = atFirst ? '0.25' : '1';
+    prevBtn.style.pointerEvents = atFirst ? 'none' : 'auto';
+  }
+  if (nextBtn) {
+    var atLast = idx >= total;
+    nextBtn.style.opacity = atLast ? '0.25' : '1';
+    nextBtn.style.pointerEvents = atLast ? 'none' : 'auto';
+  }
 }
 
 // ── Create lightweight placeholders for remaining pages, render lazily ──
@@ -1408,6 +1444,7 @@ function closePDF() {
   if (pages) pages.innerHTML = '';
   pages && (pages._lastTap = 0);
   _pdfAB = null; _pdfDoc = null;
+  _pdfNavContainer = null; _pdfNavTotalPages = 0;
   _hideSelBtn();
   var dp = document.getElementById('_dlpanel'); if (dp) dp.remove();
   var sb = document.getElementById('_sel_btn');  if (sb) sb.remove();
