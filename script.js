@@ -847,9 +847,70 @@ function _buildPageSlide(page, num, total, refEl) {
     // never interferes with normal page-to-page swipe navigation.
     _attachTouchSel(ov, cv, box, dispW, dispH, num);
     _attachMouseSel(ov, cv, dispW, dispH, num);
+
+    // Pinch-to-zoom (2 fingers) on this page only. Coexists with swipe
+    // (1-finger horizontal swipe between pages) and with hold-to-select —
+    // each gesture is distinguished by touch count, so they never conflict.
+    _attachPinchZoom(box);
   });
 
   return { wrap: wrap, renderPromise: renderPromise };
+}
+
+// ── Pinch-to-zoom — per page, 2-finger gesture only ──
+// Scales just this page's box (clipped to the slide's viewport, so the
+// zoomed view never bleeds into neighboring pages and swipe is unaffected).
+function _attachPinchZoom(box) {
+  var scale = 1;
+  var lastDist = 0;
+  var originX = 0, originY = 0;
+  var pinchMove = null;
+
+  function dist2(t) {
+    return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  }
+  function applyZoom() {
+    box.style.transform = 'scale(' + scale + ')';
+    box.style.transformOrigin = originX + 'px ' + originY + 'px';
+  }
+  function _detachPinchMove() {
+    if (pinchMove) { box.removeEventListener('touchmove', pinchMove); pinchMove = null; }
+  }
+
+  box.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 2) {
+      e.preventDefault();   // stop native browser pinch + stop swipe container from also scrolling
+      lastDist = dist2(e.touches);
+      var r = box.getBoundingClientRect();
+      originX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+      originY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+
+      if (!pinchMove) {
+        pinchMove = function(ev) {
+          if (ev.touches.length === 2) {
+            ev.preventDefault();
+            var d = dist2(ev.touches);
+            scale = Math.min(4, Math.max(1, scale * (d / lastDist)));
+            lastDist = d;
+            applyZoom();
+          }
+        };
+        box.addEventListener('touchmove', pinchMove, { passive: false });
+      }
+    }
+  }, { passive: false });
+
+  box.addEventListener('touchend', function(e) {
+    if (e.touches.length < 2) {
+      _detachPinchMove();
+      if (scale < 1.05) { scale = 1; originX = 0; originY = 0; applyZoom(); }
+    }
+  }, { passive: true });
+
+  box.addEventListener('touchcancel', function() {
+    _detachPinchMove();
+    scale = 1; originX = 0; originY = 0; applyZoom();
+  }, { passive: true });
 }
 
 // ── Touch: tap=scroll, hold=select ──
@@ -884,6 +945,9 @@ function _attachTouchSel(ov, pdfCv, wrap, cssW, cssH, pageNum) {
   }
 
   wrap.addEventListener('touchstart', function(e) {
+    // If a 2nd finger is already down, this is a pinch gesture — never
+    // start a select-hold timer for it.
+    if (e.touches && e.touches.length > 1) { clearTimeout(holdTimer); return; }
     var p = getPos(e);
     sx = p.x; sy = p.y; ex = p.x; ey = p.y;
     holdActive = false;
@@ -893,7 +957,14 @@ function _attachTouchSel(ov, pdfCv, wrap, cssW, cssH, pageNum) {
     // next/previous page, cancel the pending hold immediately so it never
     // interferes with page navigation. This listener is passive (it never
     // calls preventDefault), so it does not block the native swipe at all.
+    // PINCH FIX: a 2nd finger touching down means the user is pinch-zooming,
+    // not long-pressing — cancel the hold immediately in that case too.
     preHoldMoveHandler = function(ev) {
+      if (ev.touches && ev.touches.length > 1) {
+        clearTimeout(holdTimer);
+        _detachPreHold();
+        return;
+      }
       var p2 = getPos(ev);
       if (Math.abs(p2.x - sx) > 10 || Math.abs(p2.y - sy) > 10) {
         clearTimeout(holdTimer);
@@ -1101,22 +1172,22 @@ function _buildDownload(d, srcCv, hx, hy, hw, hh, pageNum) {
   //  Title (fits inside header) + full Date & Day + editor
   //  contact bottom-right INSIDE header | 6px padding
   // ═══════════════════════════════════════════════════════
-  var DAYS_MR  = ['रविवार','सोमवार','मंगळवार','बुधवार','गुरुवार','शुक्रवार','शनिवार'];
-  var MONTHS_MR = ['जानेवारी','फेब्रुवारी','मार्च','एप्रिल','मे','जून','जुलै','ऑगस्ट','सप्टेंबर','ऑक्टोबर','नोव्हेंबर','डिसेंबर'];
-
-  // Masthead height — taller so title + date + contact line fit comfortably
-  var HDR  = Math.max(130, Math.min(240, Math.round(hw * 0.20)));
-  // Main title font — responsive, but fraction of HDR reduced (0.36) so the
-  // title + its ascenders always stay inside the header (fixes top overflow)
+  // Masthead height — increased substantially to comfortably contain the
+  // ~50% larger title below, with generous margins on every side so
+  // nothing ever feels cramped, clipped, or touches the edges
+  var HDR  = Math.max(170, Math.min(340, Math.round(hw * 0.30)));
+  // Main title font — increased ~50% from the previous size
+  // (coefficients below are the previous values × 1.5)
   var FONT = Math.min(
-    Math.max(Math.round(hw * 0.075), 34),
-    Math.round(HDR * 0.36)
+    Math.max(Math.round(hw * 0.1185), 54),
+    Math.round(HDR * 0.55)
   );
-  FONT = Math.min(FONT, 100);
-  // Sub-text (date/day)
-  var SUB = Math.max(Math.round(FONT * 0.30), 16);
+  FONT = Math.min(FONT, 158);
+  // Sub-text (date/day) — scales together with the title so it stays
+  // proportionate and properly aligned at any image size
+  var SUB = Math.max(Math.round(FONT * 0.30), 17);
 
-  var PAD = 6; // padding increased by 4px (was 2px → now 6px)
+  var PAD = 6; // padding unchanged from previous fix (2px → 6px)
 
   // Inner (unpadded) composed size
   var innerW = hw;
@@ -1155,7 +1226,8 @@ function _buildDownload(d, srcCv, hx, hy, hw, hh, pageNum) {
   ctx.fillRect(0, HDR - borderH - redLine - 2, hw, redLine);
 
   // ── Title + date area ──
-  var textAreaLeft = Math.round(hw * 0.05);
+  // Margin increased so text never feels cramped against the edges
+  var textAreaLeft = Math.round(hw * 0.06);
   var textAreaW    = hw - textAreaLeft * 2;
   var textCX       = hw / 2;
 
@@ -1175,23 +1247,16 @@ function _buildDownload(d, srcCv, hx, hy, hw, hh, pageNum) {
     ctx.font = 'bold ' + FONT + 'px "Noto Sans Devanagari", "Mangal", serif';
   }
 
-  // Title vertical position — enough top margin so nothing overflows
-  var titleY = Math.max(borderH + FONT * 0.62, HDR * 0.30);
+  // Title vertical position — extra top margin so it never feels cramped
+  var titleY = Math.max(borderH + FONT * 0.66, HDR * 0.32);
   ctx.fillText(titleText, textCX, titleY);
 
-  // ── Date + Day below title — full format: "Wednesday, 24 June 2026" style ──
-  var dateStr = window._currentPaperDate || '';
-  var fullDate = '';
-  try {
-    var d2 = dateStr ? new Date(dateStr) : null;
-    if (d2 && !isNaN(d2.getTime())) {
-      fullDate = DAYS_MR[d2.getDay()] + ', ' + d2.getDate() + ' ' + MONTHS_MR[d2.getMonth()] + ' ' + d2.getFullYear();
-    } else {
-      fullDate = dateStr || _pdfTitle || '';
-    }
-  } catch(e2) {
-    fullDate = dateStr || _pdfTitle || '';
-  }
+  // ── Date + Day below title ──
+  // FIX: use the EXACT date/day text as entered for this newspaper
+  // (window._currentPaperDate, set from the paper's own date_text field) —
+  // never auto-calculate or regenerate the day of week via JS Date(),
+  // since that could produce a day that doesn't match the actual PDF.
+  var fullDate = window._currentPaperDate || _pdfTitle || '';
 
   var dateY = titleY + FONT * 0.95;
   if (fullDate.trim()) {
@@ -1203,12 +1268,16 @@ function _buildDownload(d, srcCv, hx, hy, hw, hh, pageNum) {
   }
 
   // ── Editor contact — bottom-right corner, INSIDE the header (not over content) ──
+  // Size increased again so it stays proportionate to the now ~50% bigger
+  // title, while remaining clearly secondary to it
   var contactFont = Math.min(
-    Math.max(Math.round(hw * 0.0145), 12),
-    Math.round(FONT * 0.32)
+    Math.max(Math.round(hw * 0.0196), 16),
+    Math.round(FONT * 0.30)
   );
-  var rightMargin = Math.round(hw * 0.025);
-  var contactBottomY = HDR - borderH - redLine - 7; // just above the red accent line
+  // Margins kept generous so the contact text never touches the edge,
+  // the divider line, or overlaps the date/day text above it
+  var rightMargin = Math.round(hw * 0.032);
+  var contactBottomY = HDR - borderH - redLine - 12; // extra clearance above the red accent line
   var combined = 'संपादक: हरी लोखंडे | Mo. No.: 9763445290 / 9762229920';
 
   ctx.font = contactFont + 'px "Noto Sans Devanagari", "Mangal", sans-serif';
@@ -1227,15 +1296,15 @@ function _buildDownload(d, srcCv, hx, hy, hw, hh, pageNum) {
     var line2 = (parts[1] || '').trim();
     ctx.textBaseline = 'alphabetic';
     ctx.fillText(line2, hw - rightMargin, contactBottomY);
-    ctx.fillText(line1, hw - rightMargin, contactBottomY - Math.round(contactFont * 1.35));
+    ctx.fillText(line1, hw - rightMargin, contactBottomY - Math.round(contactFont * 1.5));  // extra line spacing
   }
 
   // Thin decorative line between header text block and content
   ctx.strokeStyle = '#888';
   ctx.lineWidth   = 1;
   ctx.beginPath();
-  ctx.moveTo(textAreaLeft, HDR - borderH - redLine - 6);
-  ctx.lineTo(hw - textAreaLeft, HDR - borderH - redLine - 6);
+  ctx.moveTo(textAreaLeft, HDR - borderH - redLine - 9);
+  ctx.lineTo(hw - textAreaLeft, HDR - borderH - redLine - 9);
   ctx.stroke();
 
   // ── Paste selected news content ──
