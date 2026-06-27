@@ -793,13 +793,21 @@ function _buildPageSlide(page, num, total, refEl) {
   var dpr = window.devicePixelRatio || 1;
   var nat = page.getViewport({ scale: 1 });
 
-  // Fit the page fully inside the slide (contain), then render slightly
-  // sharper than the display size needs for crisp text on Retina/mobile.
-  var fitScale   = Math.min(slideW / nat.width, slideH / nat.height);
-  var DISPLAY_SCALE = Math.max(fitScale * Math.min(dpr, 2), 0.5);
-  var vp   = page.getViewport({ scale: DISPLAY_SCALE });
-  var dispW = Math.round(vp.width  / Math.min(dpr, 2));
-  var dispH = Math.round(vp.height / Math.min(dpr, 2));
+  // Fit the page fully inside the slide (contain). cssW/cssH is the fixed
+  // on-screen size — it never changes between the fast and HD render
+  // passes below, only the canvas's internal pixel resolution does.
+  var fitScale = Math.min(slideW / nat.width, slideH / nat.height);
+  var cssW = Math.round(fitScale * nat.width);
+  var cssH = Math.round(fitScale * nat.height);
+
+  // PERFORMANCE + CLARITY: render in two stages.
+  //   Stage 1 (instant): render at 1× so the page appears on screen
+  //   immediately when the PDF is opened — this is what made opening feel
+  //   slow before, since everything waited for a full high-res render.
+  //   Stage 2 (auto, moments later): silently re-render the SAME canvas
+  //   at the device's true pixel density (up to 3×) so reading text is
+  //   crisp, not blurry — matching the quality already used for downloads.
+  var vpFast = page.getViewport({ scale: fitScale });
 
   // Slide — full width/height, snaps into place, centers the page box
   var wrap = document.createElement('div');
@@ -809,7 +817,7 @@ function _buildPageSlide(page, num, total, refEl) {
 
   // Page box — exact rendered size, centered by the slide's flex layout
   var box = document.createElement('div');
-  box.style.cssText = 'position:relative;width:' + dispW + 'px;height:' + dispH + 'px;' +
+  box.style.cssText = 'position:relative;width:' + cssW + 'px;height:' + cssH + 'px;' +
     'background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);border-radius:4px;overflow:hidden;' +
     'user-select:none;-webkit-user-select:none';
 
@@ -818,17 +826,18 @@ function _buildPageSlide(page, num, total, refEl) {
   lbl.style.cssText = 'position:absolute;top:6px;left:6px;background:rgba(0,0,0,.55);color:#fff;font-size:.68rem;font-weight:700;padding:2px 8px;border-radius:50px;z-index:4;pointer-events:none;font-family:sans-serif';
   lbl.textContent = num + ' / ' + total;
 
-  // Display canvas
+  // Display canvas — CSS size (cssW/cssH) stays fixed; internal resolution
+  // (canvas.width/height) starts fast/low and is upgraded moments later
   var cv = document.createElement('canvas');
-  cv.width  = vp.width;
-  cv.height = vp.height;
-  cv.style.cssText = 'position:absolute;top:0;left:0;width:' + dispW + 'px;height:' + dispH + 'px;display:block';
+  cv.width  = vpFast.width;
+  cv.height = vpFast.height;
+  cv.style.cssText = 'position:absolute;top:0;left:0;width:' + cssW + 'px;height:' + cssH + 'px;display:block';
 
   // Selection overlay
   var ov = document.createElement('canvas');
-  ov.width  = dispW;
-  ov.height = dispH;
-  ov.style.cssText = 'position:absolute;top:0;left:0;width:' + dispW + 'px;height:' + dispH + 'px;z-index:3;touch-action:none;display:none';
+  ov.width  = cssW;
+  ov.height = cssH;
+  ov.style.cssText = 'position:absolute;top:0;left:0;width:' + cssW + 'px;height:' + cssH + 'px;z-index:3;touch-action:none;display:none';
   ov.dataset.selMode = '0';
 
   box.appendChild(lbl);
@@ -836,22 +845,38 @@ function _buildPageSlide(page, num, total, refEl) {
   box.appendChild(ov);
   wrap.appendChild(box);
 
-  var renderPromise = page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise.then(function() {
+  var renderPromise = page.render({ canvasContext: cv.getContext('2d'), viewport: vpFast }).promise.then(function() {
     cv._pageRef   = page;
-    cv._dispScale = DISPLAY_SCALE;
-    cv._cssW      = dispW;
-    cv._cssH      = dispH;
+    cv._dispScale = fitScale;
+    cv._cssW      = cssW;
+    cv._cssH      = cssH;
 
     // Long-press (hold) on the page box → select an individual news item
     // to download. Swiping (horizontal movement) cancels the hold so it
     // never interferes with normal page-to-page swipe navigation.
-    _attachTouchSel(ov, cv, box, dispW, dispH, num);
-    _attachMouseSel(ov, cv, dispW, dispH, num);
+    _attachTouchSel(ov, cv, box, cssW, cssH, num);
+    _attachMouseSel(ov, cv, cssW, cssH, num);
 
     // Pinch-to-zoom (2 fingers) on this page only. Coexists with swipe
     // (1-finger horizontal swipe between pages) and with hold-to-select —
     // each gesture is distinguished by touch count, so they never conflict.
     _attachPinchZoom(box);
+
+    // Stage 2: upgrade to crisp, device-matched resolution in the
+    // background. The page is already visible and usable at this point,
+    // so this never delays the PDF from opening — it only removes blur
+    // a moment after the page first appears.
+    var renderDPR = Math.min(dpr, 3);
+    if (renderDPR > 1) {
+      requestAnimationFrame(function() {
+        var vpHD = page.getViewport({ scale: fitScale * renderDPR });
+        cv.width  = vpHD.width;
+        cv.height = vpHD.height;
+        page.render({ canvasContext: cv.getContext('2d'), viewport: vpHD }).promise
+          .then(function() { cv._dispScale = fitScale * renderDPR; })
+          .catch(function() { /* fast version stays visible if this fails */ });
+      });
+    }
   });
 
   return { wrap: wrap, renderPromise: renderPromise };
